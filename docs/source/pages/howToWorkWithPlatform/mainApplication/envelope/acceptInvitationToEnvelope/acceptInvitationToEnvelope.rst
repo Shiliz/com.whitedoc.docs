@@ -7,7 +7,7 @@ Accept invitation to the envelope
 ---------
 
 As soon as you get invitation to the envelope to the your email address, you're able to accept invitation.
-You should follow the link and do couple simple steps to complete your part at the envelope processing flow.
+You should follow the link and make couple simple steps to complete your part at the envelope processing flow.
 
 Accept envelope as already registered and logged in customer
 ============================================================
@@ -60,3 +60,22 @@ Accept envelope as not registered customer
 Followed the link you will be redirected to the special page where you're able to register personal or company account.
 After registration personal or company account you redirects to the special page where you should select mailbox, create new one, regsiter 
 personal or company account to accept invitation to the envelope.
+
+Accept envelope on the platform
+===============================
+
+You can accept envelope on the platform and you don't need to follow to your email to check invitation.
+As soon as you get invitation to the envelope processing flow you will see on dashboard respective information. Also you can observe the list of the invites from 
+the "Waiting for you" tab on mailbox page.
+
+To accept invitation to the processing flow you have to do the following:
+
+1. Switch to the mailbox you need.
+
+2. Click on the button "View all" and you will be redirected to the "Waiting for you" tab (if you are not located on dashboard follow to Mailbox page and open "Waiting for you" tab). If you have already in "Waiting for you" tab, just skip this step.
+
+3. On the tab "Waiting for you" you will watch special invitation block with envelopes you need to put into mailbox. You can click on "Accept all" and all invitations will be added to mailbox where you are now.
+
+4. Or you can click on respective envelope checkboxes to select envelopes you need in this particular mailbox and click on "Accept only selected". All selected envelopes will be assigned to mailbox where you are now.
+
+5. Or you can click on respective envelope and apply invitation manually. As described in topics above.
