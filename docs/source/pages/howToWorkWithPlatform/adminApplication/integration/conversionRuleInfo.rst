@@ -32,405 +32,294 @@ Conversion rule example for outgoing documents
 
 .. code:: xml
 
-    <?xml version='1.0'?>
-    <xsl:stylesheet version="1.0"
-                    xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
-                    xmlns:saxon="http://saxon.sf.net/"
-                    xmlns:wdExtensions="java:com.whitedoc.xslt.extensions.WdExtensions"
-                    exclude-result-prefixes="saxon wdExtensions">
-        <xsl:output indent="yes"/>
+<?xml version="1.0"?>
+<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns:saxon="http://saxon.sf.net/" xmlns:wdExtensions="java:com.whitedoc.xslt.extensions.WdExtensions" exclude-result-prefixes="saxon wdExtensions">
+	<xsl:output indent="yes"/>
 
-        <xsl:template match="/">
-            <xsl:apply-templates select="EDIFACT/ORDERS"/>
-            <xsl:apply-templates select="EANCOM/ORDERS"/>
-        </xsl:template>
+	<!--Корневой темплейт задается отдельно, для оптимизации, чтобы в каждой выборке не писать ORDER/-->
+	<xsl:template match="/">
+		<xsl:apply-templates select="ORDER"/>
+	</xsl:template>
 
-        <xsl:template match="ORDERS">
-            <xsl:variable name="supplierGLN" select="../UNB/UNB03/UNB0301"/>
-            <xsl:variable name="senderGLN" select="../UNB/UNB02/UNB0201"/>
-            <xsl:variable name="supplierUuid" select="wdExtensions:getValueFromDictionary('a5390637-f3b5-49f3-b7f6-48132f6fe8bb', '7f9d20ab-71d8-45e0-9756-2887fd427cd6', $supplierGLN, 'f69ee017-1fb3-4ff1-a803-c4ade48ea65e')"/>
-            <envelope templateUuid="579ba3f3-7e26-4c7a-845c-ffa0fdf78057" templateVersion="55809865-32df-4341-91b0-b8bc44451394">
-                <info>
-                    <subject>Замовлення на постачання № <xsl:choose><!--Dlya MTI-->
-                        <xsl:when test="../UNB/UNB02/UNB0201=4820140450000"><xsl:value-of select="BGM/BGM02/BGM0201"/></xsl:when>
-                        <xsl:otherwise><xsl:value-of select="BGM/BGM02"/></xsl:otherwise>
-                    </xsl:choose>
-                    </subject>
-                    <message>Оригінал замовлення</message>
-                </info>
-                <state>
-                  <message/>
-                  <date>
-                    2021-02-03T12:22:52.709Z
-                  </date>
-                  <roleId>
+	<xsl:template match="ORDER">
+		<envelope>
+			<!--UUID шаблона нужно скопировать с формы на портале-->
+			<xsl:attribute name="templateUuid" select="'fdf13b93-a82f-4d48-885f-ddbadf365174'"/>
+			<!--UUID версии шаблона-->
+			<xsl:attribute name="templateVersion" select="'7b627762-fba6-4b60-8875-da3cb8d55269'"/>
+			<info>
+				<subject>
+					<xsl:value-of select="concat('Замовлення на постачання № ',NUMBER)"/>
+				</subject>
+				<message>
+					<xsl:choose>
+						<xsl:when test="DOCTYPE='O'">Оригінал замовлення</xsl:when>
+						<xsl:when test="DOCTYPE='R'">Заміна замовлення</xsl:when>
+						<xsl:when test="DOCTYPE='D'">Видалення замовлення</xsl:when>
+						<xsl:when test="DOCTYPE='F'">Фіктивність замовлення</xsl:when>
+						<xsl:when test="DOCTYPE='PO'">Попереднє замовлення</xsl:when>
+						<xsl:when test="DOCTYPE='OS'">Замовлення на послугу / маркетинг</xsl:when>
+						<xsl:otherwise>
+							<xsl:value-of select="'Оригінал замовлення'"/>
+						</xsl:otherwise>
+					</xsl:choose>
+				</message>
+			</info>
+			<state>
+				<message>
+					<xsl:value-of select="INFO"/>
+				</message>
+				<date>
+					<xsl:value-of select="current-date() "/>
+				</date>
+				<roleId>
+				</roleId>
+			</state>
+			<documents>
+				<document>
+					<!--Задание UUID конвертируемого документа, смотрим в схеме конвертации перед настройкой интеграции-->
+					<!--Атрибуты необходимо задавать специальной командой, тогда будет отрабатывать корректно логика при структурировании карты-->
+					<xsl:attribute name="id" select="'cd511754-cfd1-49a3-aae4-aab212d83cea'"/>
+					<field>
+						<!--Номер заказа в системе покупателя-->
+						<xsl:attribute name="name" select="'NUMBER'"/>
+						<xsl:value-of select="NUMBER"/>
+					</field>
+					<field>
+						<!--Дата заказа в системе покупателя-->
+						<xsl:attribute name="name" select="'DATE'"/>
+						<xsl:value-of select="DATE"/>
+					</field>
+					<field>
+						<!--Дата доставки-->
+						<xsl:attribute name="name" select="'DELIVERYDATE'"/>
+						<xsl:value-of select="DELIVERYDATE"/>
+					</field>
+					<!--Проверка на заполнение необходима в тегах, которые могут быть не заполнены покупателем.-->
+					<xsl:if test="CURRENCY">
+						<field>
+							<!--Валюта-->
+							<xsl:attribute name="name" select="'CURRENCY'"/>
+							<xsl:value-of select="CURRENCY"/>
+						</field>
+					</xsl:if>
+					<xsl:if test="string-length(CAMPAIGNNUMBER)!=0">
+						<field>
+							<!--Номер договора-->
+							<xsl:attribute name="name" select="'CAMPAIGNNUMBER'"/>
+							<xsl:value-of select="CAMPAIGNNUMBER"/>
+						</field>
+					</xsl:if>
+					<xsl:if test="string-length(INFO)!=0">
+						<!--Доп. информация, иногда в этом теге передается информация, которую необходимо обрабатывать-->
+						<field>
+							<xsl:attribute name="name" select="'INFO'"/>
+							<xsl:value-of select="INFO"/>
+						</field>
+					</xsl:if>
+					<xsl:if test="string-length(DOCTYPE)!=0">
+						<!--Тип документа: O - оригінал, R - заміна, D - видалення, F - фіктивність замовлення, PO - попереднє замовлення, OS - замовлення на послугу / маркетинг-->
+						<field>
+							<xsl:attribute name="name" select="'DOCTYPE'"/>
+							<xsl:choose>
+								<xsl:when test="DOCTYPE='O'">Оригінал замовлення</xsl:when>
+								<xsl:when test="DOCTYPE='R'">Заміна замовлення</xsl:when>
+								<xsl:when test="DOCTYPE='D'">Видалення замовлення</xsl:when>
+								<xsl:when test="DOCTYPE='F'">Фіктивність замовлення</xsl:when>
+								<xsl:when test="DOCTYPE='PO'">Попереднє замовлення</xsl:when>
+								<xsl:when test="DOCTYPE='OS'">Замовлення на послугу / маркетинг</xsl:when>
+								<xsl:otherwise>
+									<xsl:value-of select="DOCTYPE"/>
+								</xsl:otherwise>
+							</xsl:choose>
+						</field>
+					</xsl:if>
+					<field>
+						<!--Поставщик(продавац)-->
+						<xsl:attribute name="name" select="'SUPPLIER'"/>
+						<xsl:attribute name="recordUuid" select="wdExtensions:getRecordUuidByValueFromDictionary('5bc5be5a-751d-4ae3-8ad8-3a6ac1ab71c8', '4f68fbf0-d78d-4aef-9192-bccd0c8d6011', HEAD/SUPPLIER)"/>
+						<xsl:value-of select="HEAD/SUPPLIER"/>
+					</field>
+					<field>
+						<!--Покупатель-->
+						<xsl:attribute name="name" select="'BUYER'"/>
+						<xsl:attribute name="recordUuid" select="wdExtensions:getRecordUuidByValueFromDictionary('5bc5be5a-751d-4ae3-8ad8-3a6ac1ab71c8', '4f68fbf0-d78d-4aef-9192-bccd0c8d6011', HEAD/BUYER)"/>
+						<xsl:value-of select="HEAD/BUYER"/>
+					</field>
+					<field>
+						<!--Точка доставки-->
+						<xsl:attribute name="name" select="'DELIVERYPLACE'"/>
+						<xsl:attribute name="recordUuid" select="wdExtensions:getRecordUuidByValueFromDictionary('5bc5be5a-751d-4ae3-8ad8-3a6ac1ab71c8', '4f68fbf0-d78d-4aef-9192-bccd0c8d6011', HEAD/DELIVERYPLACE)"/>
+						<xsl:value-of select="HEAD/DELIVERYPLACE"/>
+					</field>
 
-                  </roleId>
-                </state>
-                <documents>
-                    <document id="cd511754-cfd1-49a3-aae4-aab212d83cea">
-                        <field name="NUMBER">
-                            <xsl:choose><!--Dlya MTI-->
-                                <xsl:when test="../UNB/UNB02/UNB0201=4820140450000"><xsl:value-of select="BGM/BGM02/BGM0201"/></xsl:when>
-                                <xsl:otherwise><xsl:value-of select="BGM/BGM02"/></xsl:otherwise>
-                            </xsl:choose>
-                        </field>
-                        <xsl:apply-templates select="DTM"/>
-                        <xsl:apply-templates select="GROUP_2" mode="YC1"/>
-                        <xsl:if test="GROUP_7/CUX/CUX01/CUX0102 and ../UNB/UNB03/UNB0301!='4829900003227'">
-                            <field name="CURRENCY"><xsl:value-of select="GROUP_7/CUX/CUX01/CUX0102"/></field>
-                        </xsl:if>
-                        <xsl:choose>
-                            <xsl:when test="GROUP_1/RFF/RFF01/RFF0102 and ../UNB/UNB02/UNB0201='4820086630009'">
-                                <field name="INFO">№ акции: <xsl:value-of select="GROUP_1/RFF/RFF01/RFF0102"/></field>
-                            </xsl:when>
-                            <xsl:when test="../UNB/UNB02/UNB0201='4823060600005'">
-                                <field name="INFO"><xsl:value-of select="FTX/FTX04/FTX0401"/>, <xsl:value-of select="FTX/FTX04/FTX0402"/>, <xsl:value-of select="FTX/FTX04/FTX0403"/></field>
-                            </xsl:when>
-                        </xsl:choose>
-                        <xsl:apply-templates select="GROUP_2" mode="NAD"/>
-                        <fieldgroup name="POSITION">
-                            <xsl:choose>
-                                <xsl:when test="../UNB/UNB03/UNB0301='4829900003227'">
-                                    <xsl:apply-templates select="GROUP_28" mode="LOREAL"/>
-                                </xsl:when>
-                                <xsl:when test="GROUP_28">
-                                    <xsl:apply-templates select="GROUP_28"/>
-                                </xsl:when>
-                                <xsl:otherwise>
-                                    <xsl:apply-templates select="GROUP_25"/>
-                                </xsl:otherwise>
-                            </xsl:choose>
-                        </fieldgroup>
-                        <field name="POSITIONSCOUNT"><xsl:value-of select="count(//GROUP_28)"/></field>
-                        <field name="SUMORDEREDQUANTITY"><xsl:value-of select="sum(//QTY0102)"/></field>
-                    </document>
-                </documents>
-                <flow>
-                    <roles>
-                        <role id="f9378c46-5dfe-484a-b985-5a157d238b5c" mailboxUuid="625d1530-8896-49a5-b53c-37e5ade5e750"/>
-                        <role id="d59d8545-f1d2-4008-951f-2f43509d966e" mailboxUuid="{$supplierUuid}"/>
-                    </roles>
-                </flow>
-            </envelope>
-        </xsl:template>
+					<xsl:if test="HEAD/INVOICEPARTNER">
+						<field>
+							<!--Плательщик, этот тег в шаблонах необходимо делать не обязательным и он также может совпадать с покупателем.-->
+							<xsl:attribute name="name" select="'INVOICEPARTNER'"/>
+							<xsl:value-of select="HEAD/INVOICEPARTNER"/>
+						</field>
+					</xsl:if>
 
-        <xsl:template match="DTM">
-            <xsl:choose>
-                <xsl:when test="DTM01/DTM0101 = '137'">
-                    <field name="DATE">
-                        <xsl:value-of select="substring(DTM01/DTM0102, 7, 2)"/>-<xsl:value-of select="substring(DTM01/DTM0102, 5, 2)"/>-<xsl:value-of select="substring(DTM01/DTM0102, 1, 4)"/>
-                    </field>
-                </xsl:when>
-                <xsl:when test="DTM01/DTM0101 = '2'">
-                    <xsl:if test="string-length(DTM01/DTM0102) = '12'">
-                        <field name="DELIVERYDATE">
-                            <xsl:value-of select="substring(DTM01/DTM0102, 7, 2)"/>-<xsl:value-of select="substring(DTM01/DTM0102, 5, 2)"/>-<xsl:value-of select="substring(DTM01/DTM0102, 1, 4)"/>
-                        </field>
-                    </xsl:if>
-                    <xsl:if test="string-length(DTM01/DTM0102) = '8'">
-                        <field name="DELIVERYDATE">
-                            <xsl:value-of select="substring(DTM01/DTM0102, 7, 2)"/>-<xsl:value-of select="substring(DTM01/DTM0102, 5, 2)"/>-<xsl:value-of select="substring(DTM01/DTM0102, 1, 4)"/>
-                        </field>
-                    </xsl:if>
-                </xsl:when>
-            </xsl:choose>
-        </xsl:template>
+					<!--<field name="SUPPLIERNAME" value="wdExtensions:getValueFromDictionary('5bc5be5a-751d-4ae3-8ad8-3a6ac1ab71c8', '4f68fbf0-d78d-4aef-9192-bccd0c8d6011', HEAD/SUPPLIER, '7cdb31bb-7747-4219-9df9-d62e1e99e40b')"/>
+					<field name="SUPPLIERINDEX" value="wdExtensions:getValueFromDictionary('5bc5be5a-751d-4ae3-8ad8-3a6ac1ab71c8', '4f68fbf0-d78d-4aef-9192-bccd0c8d6011', HEAD/SUPPLIER, '73cdf547-36a9-44b2-9de8-668e430ca4e9')"/>
+					<field name="SUPPLIERCITY" value="wdExtensions:getValueFromDictionary('5bc5be5a-751d-4ae3-8ad8-3a6ac1ab71c8', '4f68fbf0-d78d-4aef-9192-bccd0c8d6011', HEAD/SUPPLIER, '3e8830d6-beb2-4da2-8f67-d983ad6774ce')"/>
+					<field name="SUPPLIERADDRESS" value="wdExtensions:getValueFromDictionary('5bc5be5a-751d-4ae3-8ad8-3a6ac1ab71c8', '4f68fbf0-d78d-4aef-9192-bccd0c8d6011', HEAD/SUPPLIER, '55e0ae28-eebc-43f2-8ebf-88af76a0ce24')"/>-->
 
-        <xsl:template match="GROUP_2" mode="YC1">
-            <xsl:choose>
-                <xsl:when test="NAD/NAD01 = 'SU'">
-                    <xsl:if test="NAD/NAD03">
-                        <field name="CAMPAIGNNUMBER">
-                            <xsl:value-of select="NAD/NAD03"/>
-                        </field>
-                    </xsl:if> <xsl:apply-templates select="GROUP_3" mode="YC1"/>
-                </xsl:when>
-            </xsl:choose>
-        </xsl:template>
+					<!--<field name="BUYERNAME" value="wdExtensions:getValueFromDictionary('5bc5be5a-751d-4ae3-8ad8-3a6ac1ab71c8', '4f68fbf0-d78d-4aef-9192-bccd0c8d6011', HEAD/BUYER, '7cdb31bb-7747-4219-9df9-d62e1e99e40b')"/>
+					<field name="BUYERINDEX" value="wdExtensions:getValueFromDictionary('5bc5be5a-751d-4ae3-8ad8-3a6ac1ab71c8', '4f68fbf0-d78d-4aef-9192-bccd0c8d6011', HEAD/BUYER, '73cdf547-36a9-44b2-9de8-668e430ca4e9')"/>
+					<field name="BUYERCITY" value="wdExtensions:getValueFromDictionary('5bc5be5a-751d-4ae3-8ad8-3a6ac1ab71c8', '4f68fbf0-d78d-4aef-9192-bccd0c8d6011', HEAD/BUYER, '3e8830d6-beb2-4da2-8f67-d983ad6774ce')"/>
+					<field name="BUYERADDRESS" value="wdExtensions:getValueFromDictionary('5bc5be5a-751d-4ae3-8ad8-3a6ac1ab71c8', '4f68fbf0-d78d-4aef-9192-bccd0c8d6011', HEAD/BUYER, '55e0ae28-eebc-43f2-8ebf-88af76a0ce24')"/>-->
 
-        <xsl:template match="GROUP_3" mode="YC1">
-            <xsl:choose>
-                <xsl:when test="RFF/RFF01/RFF0101='YC1'">
-                    <field name="CAMPAIGNNUMBER">
-                        <xsl:value-of select="RFF/RFF01/RFF0102"/>
-                    </field>
-                </xsl:when>
-            </xsl:choose>
-        </xsl:template>
+					<!--<field name="DELIVERYPLACENAME" value="wdExtensions:getValueFromDictionary('5bc5be5a-751d-4ae3-8ad8-3a6ac1ab71c8', '4f68fbf0-d78d-4aef-9192-bccd0c8d6011', HEAD/DELIVERYPLACE, '7cdb31bb-7747-4219-9df9-d62e1e99e40b')"/>
+					<field name="DELIVERYPLACEINDEX" value="wdExtensions:getValueFromDictionary('5bc5be5a-751d-4ae3-8ad8-3a6ac1ab71c8', '4f68fbf0-d78d-4aef-9192-bccd0c8d6011', HEAD/DELIVERYPLACE, '73cdf547-36a9-44b2-9de8-668e430ca4e9')"/>
+					<field name="DELIVERYPLACECITY" value="wdExtensions:getValueFromDictionary('5bc5be5a-751d-4ae3-8ad8-3a6ac1ab71c8', '4f68fbf0-d78d-4aef-9192-bccd0c8d6011', HEAD/DELIVERYPLACE, '3e8830d6-beb2-4da2-8f67-d983ad6774ce')"/>
+					<field name="DELIVERYPLACEADDRESS" value="wdExtensions:getValueFromDictionary('5bc5be5a-751d-4ae3-8ad8-3a6ac1ab71c8', '4f68fbf0-d78d-4aef-9192-bccd0c8d6011', HEAD/DELIVERYPLACE, '55e0ae28-eebc-43f2-8ebf-88af76a0ce24')"/>-->
 
-        <xsl:template match="GROUP_2" mode="NAD">
-            <xsl:choose>
-                <xsl:when test="NAD/NAD01='SU'">
-                    <xsl:variable name="supplierRecordValue" select="NAD/NAD02/NAD0201"></xsl:variable>
-                    <field name="SUPPLIER" recordUuid="{wdExtensions:getRecordUuidByValueFromDictionary('a5390637-f3b5-49f3-b7f6-48132f6fe8bb', '7f9d20ab-71d8-45e0-9756-2887fd427cd6', $supplierRecordValue)}">
-                        <xsl:value-of select="$supplierRecordValue"/>
-                    </field>
-                </xsl:when>
-                <xsl:when test="NAD/NAD01='BY'">
-                    <xsl:variable name="buyer" select="string-length(NAD/NAD02/NAD0201)"/>
-                    <xsl:choose>
-                        <xsl:when test="$buyer=13">
-                            <xsl:variable name="buyerRecordValue" select="NAD/NAD02/NAD0201"></xsl:variable>
-                            <field name="BUYER" recordUuid="{wdExtensions:getRecordUuidByValueFromDictionary('258a20bd-ffe5-47b4-a76a-5d440469e444', '592553ba-3e02-43c1-bff6-b7fa438b8fda', $buyerRecordValue)}">
-                                <xsl:value-of select="$buyerRecordValue"/>
-                            </field>
-                        </xsl:when>
-                        <xsl:otherwise>
-                            <field name="BUYERCODE">
-                                <xsl:value-of select="NAD/NAD02/NAD0201"/>
-                            </field>
-                        </xsl:otherwise>
-                    </xsl:choose>
-                </xsl:when>
-                <xsl:when test="NAD/NAD01='DP'">
-                    <xsl:variable name="deliveryPlaceValue" select="NAD/NAD02/NAD0201"></xsl:variable>
-                    <field name="DELIVERYPLACE" recordUuid="{wdExtensions:getRecordUuidByValueFromDictionary('258a20bd-ffe5-47b4-a76a-5d440469e444', '592553ba-3e02-43c1-bff6-b7fa438b8fda', $deliveryPlaceValue)}">
-                        <xsl:value-of select="$deliveryPlaceValue"/>
-                    </field>
-                </xsl:when>
-                <xsl:when test="NAD/NAD01='IV'">
-                    <xsl:variable name="invoicePartnerRecordValue" select="NAD/NAD02/NAD0201"></xsl:variable>
-                    <field name="INVOICEPARTNER" recordUuid="{wdExtensions:getRecordUuidByValueFromDictionary('258a20bd-ffe5-47b4-a76a-5d440469e444', '592553ba-3e02-43c1-bff6-b7fa438b8fda', $invoicePartnerRecordValue)}">
-                        <xsl:value-of select="$invoicePartnerRecordValue"/>
-                    </field>
-                </xsl:when>
-                <xsl:when test="NAD/NAD01='CA'">
-                    <xsl:if test="NAD/NAD02/NAD0201">
-                        <xsl:if test="13>string-length(NAD/NAD02/NAD0201)">
-                            <field name="RECIPIENTCODE">
-                                <xsl:value-of select="NAD/NAD02/NAD0201"/>
-                            </field>
-                        </xsl:if>
-                    </xsl:if>
-                    <xsl:if test="NAD/NAD05">
-                        <field name="RECIPIENTADRESS">
-                            <xsl:value-of select="NAD/NAD05"/>
-                        </field>
-                    </xsl:if>
-                    <xsl:if test="NAD/NAD06">
-                        <field name="RECIPIENTCITY">
-                            <xsl:value-of select="NAD/NAD06"/>
-                        </field>
-                    </xsl:if>
-                    <xsl:if test="NAD/NAD04">
-                        <field name="RECIPIENTNAME">
-                            <xsl:value-of select="NAD/NAD04"/>
-                        </field>
-                    </xsl:if>
-                </xsl:when>
-                <xsl:when test="NAD/NAD01='CL'">
-                    <field name="INVOICEPARTNER">
-                        <xsl:value-of select="NAD/NAD02/NAD0201"/>
-                    </field>
-                </xsl:when>
-            </xsl:choose>
-        </xsl:template>
+					<field>
+						<!--Отправитель-->
+						<xsl:attribute name="name" select="'SENDER'"/>
+						<xsl:value-of select="HEAD/SENDER"/>
+					</field>
+					<field>
+						<!--Получатель-->
+						<xsl:attribute name="name" select="'RECIPIENT'"/>
+						<xsl:value-of select="HEAD/RECIPIENT"/>
+					</field>
+					<field>
+						<!--ID транзакції-->
+						<xsl:attribute name="name" select="'EDIINTERCHANGEID'"/>
+						<xsl:value-of select="HEAD/EDIINTERCHANGEID"/>
+					</field>
+					<fieldgroup name="POSITION">
+						<!--Подбор товарных строк осуществляется в отдельном темплейте, т.к. строк может быть неограниченное кол-во-->
+						<xsl:apply-templates select="HEAD/POSITION"/>
+					</fieldgroup>
+					<field name="POSITIONSCOUNT">
+						<xsl:value-of select="count(HEAD/POSITION)"/>
+					</field>
+					<field name="SUMORDEREDQUANTITY">
+						<xsl:value-of select="format-number(sum(HEAD/POSITION/ORDEREDQUANTITY),'#.###')"/>
+					</field>
+					<xsl:if test="HEAD/POSITION/ORDERPRICE">
+						<field name="POSITIONSAMOUNT">
+							<xsl:value-of select="format-number(sum(HEAD/POSITION/ORDEREDQUANTITY*HEAD/POSITION/ORDERPRICE),'#.##')"/>
+						</field>
+					</xsl:if>
+					<xsl:if test="HEAD/POSITION/PRICEWITHVAT">
+						<field name="TOTALAMOUNT">
+							<xsl:value-of select="format-number(sum(HEAD/POSITION/ORDEREDQUANTITY*HEAD/POSITION/PRICEWITHVAT),'#.##')"/>
+						</field>
+					</xsl:if>
+					<xsl:if test="HEAD/POSITION/ORDERPRICE and HEAD/POSITION/PRICEWITHVAT">
+						<field name="VATSUM">
+							<xsl:value-of select="format-number(sum(HEAD/POSITION/ORDEREDQUANTITY*HEAD/POSITION/PRICEWITHVAT)-sum(HEAD/POSITION/ORDEREDQUANTITY*HEAD/POSITION/ORDERPRICE),'#.##')"/>
+						</field>
+					</xsl:if>
+				</document>
+			</documents>
+			<flow>
+				<roles>
+					<!--Отправитель-->
+					<role>
+						<xsl:attribute name="id" select="'f9378c46-5dfe-484a-b985-5a157d238b5c'"/>
+						<xsl:attribute name="mailboxUuid" select="wdExtensions:getValueFromDictionary('5bc5be5a-751d-4ae3-8ad8-3a6ac1ab71c8', '4f68fbf0-d78d-4aef-9192-bccd0c8d6011', HEAD/BUYER, '1ddf9e46-49f5-41a2-b6f5-7c3015bc4505')"/>
 
-        <xsl:template match="GROUP_28">
-            <fieldset index="{position() - 1}">
-                <field name="POSITIONNUMBER">
-                    <xsl:value-of select="position()"/>
-                </field>
-                <xsl:choose>
-                    <xsl:when test="boolean(LIN/LIN03/LIN0301)">
-                        <field name="PRODUCT">
-                            <xsl:value-of select="LIN/LIN03/LIN0301"/>
-                        </field>
-                    </xsl:when>
-                    <xsl:otherwise>
-                        <field name="PRODUCT">4829090909095</field>
-                    </xsl:otherwise>
-                </xsl:choose>
-                <xsl:apply-templates select="PIA"/>
-                <xsl:apply-templates select="QTY"/>
-                <xsl:choose>
-                    <xsl:when test="GROUP_32/PRI/PRI01/PRI0101 = 'AAA' and boolean(substring-before(GROUP_32/PRI/PRI01/PRI0102, '.'))">
-                        <field name="ORDERPRICE">
-                            <xsl:value-of select="substring-before(GROUP_32/PRI/PRI01/PRI0102, '.')"/>.<xsl:value-of select="substring(substring-after(GROUP_32/PRI/PRI01/PRI0102, '.'), 1, 3)"/>
-                        </field>
-                    </xsl:when>
-                    <xsl:otherwise>
-                        <xsl:if test="GROUP_32/PRI/PRI01/PRI0101 = 'AAA'">
-                            <field name="ORDERPRICE">
-                                <xsl:value-of select="GROUP_32/PRI/PRI01/PRI0102"/>
-                            </field>
-                        </xsl:if>
-                    </xsl:otherwise>
-                </xsl:choose>
-                <xsl:choose>
-                    <xsl:when test="IMD/IMD03/IMD0304">
-                        <field name="CHARACTERISTIC_DESCRIPTION">
-                            <xsl:value-of select="translate(IMD/IMD03/IMD0304, '&amp;&lt;&gt;', '')"/><xsl:if test="boolean(IMD03/IMD0305)">(<xsl:value-of select="translate(IMD03/IMD0305, '&amp;&lt;&gt;', '')"/>)</xsl:if>
-                        </field>
-                    </xsl:when>
-                </xsl:choose>
-                <xsl:if test="FTX"><xsl:apply-templates select="FTX"/></xsl:if>
-            </fieldset>
-        </xsl:template>
+						<!--<xsl:attribute name="mailboxUuid" select="'19fecc4c-92a3-4cd7-b64a-eeacec8b84d7'"/>-->
+					</role>
+					<!--Получатель-->
+					<role>
+						<xsl:attribute name="id" select="'d01dd50c-8e56-432e-9194-6dd6ac6200c8'"/>
+						<xsl:attribute name="mailboxUuid" select="wdExtensions:getValueFromDictionary('5bc5be5a-751d-4ae3-8ad8-3a6ac1ab71c8', '4f68fbf0-d78d-4aef-9192-bccd0c8d6011', HEAD/SUPPLIER, '1ddf9e46-49f5-41a2-b6f5-7c3015bc4505')"/>
+						<!--<xsl:attribute name="mailboxUuid" select="'3b49d365-5c96-4320-81bf-4b96cfacfcfc'"/>-->
+					</role>
+				</roles>
+			</flow>
+		</envelope>
+	</xsl:template>
 
-        <xsl:template match="GROUP_28" mode="LOREAL">
-            <fieldset index="{position() - 1}">
-                <field name="POSITIONNUMBER">
-                    <xsl:value-of select="position()"/>
-                </field>
-                <xsl:choose>
-                    <xsl:when test="boolean(LIN/LIN03/LIN0301)">
-                        <field name="PRODUCT">
-                            <xsl:value-of select="LIN/LIN03/LIN0301"/>
-                        </field>
-                    </xsl:when>
-                    <xsl:otherwise>
-                        <field name="PRODUCT">4829090909095</field>
-                    </xsl:otherwise>
-                </xsl:choose>
-                <xsl:apply-templates select="PIA" mode="LOREAL"/>
-                <xsl:apply-templates select="QTY" mode="LOREAL"/>
-            </fieldset>
-        </xsl:template>
 
-        <xsl:template match="GROUP_25">
-            <fieldset index="{position() - 1}">
-                <field name="POSITIONNUMBER">
-                    <xsl:value-of select="position()"/>
-                </field>
-                <xsl:choose>
-                    <xsl:when test="boolean(LIN/LIN03/LIN0301)">
-                        <field name="PRODUCT">
-                            <xsl:value-of select="LIN/LIN03/LIN0301"/>
-                        </field>
-                    </xsl:when>
-                    <xsl:otherwise>
-                        <field name="PRODUCT">4829090909095</field>
-                    </xsl:otherwise>
-                </xsl:choose>
-                <xsl:apply-templates select="PIA"/>
-                <xsl:apply-templates select="QTY"/>
-                <xsl:choose>
-                    <xsl:when test="GROUP_32/PRI/PRI01/PRI0101 = 'AAA' and boolean(substring-before(GROUP_32/PRI/PRI01/PRI0102, '.'))">
-                        <field name="ORDERPRICE">
-                            <xsl:value-of select="substring-before(GROUP_32/PRI/PRI01/PRI0102, '.')"/>.<xsl:value-of select="substring(substring-after(GROUP_32/PRI/PRI01/PRI0102, '.'), 1, 3)"/>
-                        </field>
-                    </xsl:when>
-                    <xsl:when test="GROUP_28/PRI/PRI01/PRI0101 = 'AAA' and boolean(substring-before(GROUP_28/PRI/PRI01/PRI0102, '.'))">
-                        <field name="ORDERPRICE">
-                            <xsl:value-of select="substring-before(GROUP_28/PRI/PRI01/PRI0102, '.')"/>.<xsl:value-of select="substring(substring-after(GROUP_28/PRI/PRI01/PRI0102, '.'), 1, 3)"/>
-                        </field>
-                    </xsl:when>
-                    <xsl:otherwise>
-                        <xsl:if test="GROUP_32/PRI/PRI01/PRI0101 = 'AAA'">
-                            <field name="ORDERPRICE">
-                                <xsl:value-of select="GROUP_32/PRI/PRI01/PRI0102"/>
-                            </field>
-                        </xsl:if>
-                        <xsl:if test="GROUP_28/PRI/PRI01/PRI0101 = 'AAA'">
-                            <field name="ORDERPRICE">
-                                <xsl:value-of select="GROUP_28/PRI/PRI01/PRI0102"/>
-                            </field>
-                        </xsl:if>
-                    </xsl:otherwise>
-                </xsl:choose>
-                <xsl:choose>
-                    <xsl:when test="IMD/IMD03/IMD0304">
-                        <field name="CHARACTERISTIC_DESCRIPTION">
-                            <xsl:value-of select="translate(IMD/IMD03/IMD0304, '&amp;&lt;&gt;', '')"/><xsl:if test="boolean(IMD/IMD03/IMD0305)">(<xsl:value-of select="translate(IMD/IMD03/IMD0305, '&amp;&lt;&gt;', '')"/>)</xsl:if>
-                        </field>
-                    </xsl:when>
-                </xsl:choose>
-            </fieldset>
-        </xsl:template>
-
-        <xsl:template match="PIA">
-            <xsl:choose>
-                <xsl:when test="PIA01 = '1'">
-                    <xsl:if test="PIA02/PIA0202 = 'IN' or PIA02/PIA0202 = 'BP'">
-                        <field name="PRODUCTIDBUYER">
-                            <xsl:value-of select="PIA02/PIA0201"/>
-                        </field>
-                    </xsl:if>
-                    <xsl:if test="PIA02/PIA0202 = 'SA'">
-                        <field name="PRODUCTIDSUPPLIER">
-                            <xsl:value-of select="PIA02/PIA0201"/>
-                        </field>
-                    </xsl:if>
-                </xsl:when>
-                <xsl:when test="PIA01 = '5'">
-                    <xsl:if test="PIA02/PIA0202 = 'IN' or PIA02/PIA0202 = 'BP'">
-                        <field name="BUYERPARTNUMBER">
-                            <xsl:value-of select="PIA02/PIA0201"/>
-                        </field>
-                    </xsl:if>
-                </xsl:when>
-            </xsl:choose>
-        </xsl:template>
-        <xsl:template match="PIA" mode="LOREAL">
-            <xsl:choose>
-                <xsl:when test="PIA01 = '5'">
-                    <xsl:if test="PIA02/PIA0202 = 'IN' or PIA02/PIA0202 = 'BP'">
-                        <field name="PRODUCTIDBUYER">
-                            <xsl:value-of select="PIA02/PIA0201"/>
-                        </field>
-                    </xsl:if>
-                </xsl:when>
-            </xsl:choose>
-        </xsl:template>
-
-        <xsl:template match="QTY">
-            <xsl:choose>
-                <xsl:when test="QTY01/QTY0101 = '21'">
-                    <field name="ORDEREDQUANTITY">
-                        <xsl:value-of select="QTY01/QTY0102"/>
-                    </field>
-                    <xsl:if test="boolean(QTY01/QTY0103)">
-                        <field name="ORDERUNIT">
-                            <xsl:variable name="orderUnitValue" select="QTY01/QTY0103"/>
-                            <xsl:value-of select="wdExtensions:getValueFromDictionary('ee0aeb8e-ba06-41c7-8851-8ac38874fd4b', '52140044-da47-4cf9-90c6-988f44499d11', $orderUnitValue, '7aa2b0d9-bb42-4a4f-8588-46cfa4eda07c')"/>
-                        </field>
-                    </xsl:if>
-                </xsl:when>
-                <xsl:when test="QTY01/QTY0101 = '59'">
-                    <field name="QUANTITYOFCUINTU">
-                        <xsl:value-of select="QTY01/QTY0102"/>
-                    </field>
-                </xsl:when>
-            </xsl:choose>
-        </xsl:template>
-        <xsl:template match="QTY" mode="LOREAL">
-            <xsl:choose>
-                <xsl:when test="QTY01/QTY0101 = '21'">
-                    <field name="ORDEREDQUANTITY">
-                        <xsl:value-of select="QTY01/QTY0102"/>
-                    </field>
-                    <xsl:if test="boolean(QTY01/QTY0103)">
-                        <field name="ORDERUNIT">
-                            <xsl:variable name="orderUnitValue" select="QTY01/QTY0103"/>
-                            <xsl:value-of select="wdExtensions:getValueFromDictionary('ee0aeb8e-ba06-41c7-8851-8ac38874fd4b', '52140044-da47-4cf9-90c6-988f44499d11', $orderUnitValue, '7aa2b0d9-bb42-4a4f-8588-46cfa4eda07c')"/>
-                        </field>
-                    </xsl:if>
-                </xsl:when>
-            </xsl:choose>
-        </xsl:template>
-
-        <xsl:template match="FTX">
-            <xsl:choose>
-                <xsl:when test="FTX01='QQD'">
-                    <field name="CONDITIONSTATUS">
-                        <xsl:value-of select="FTX04"/>
-                    </field>
-                </xsl:when>
-            </xsl:choose>
-        </xsl:template>
-
-        <xsl:template match="GROUP_2" mode="NADUP">
-            <xsl:if test="NAD/NAD01='DP'">
-                <xsl:choose>
-                    <xsl:when test="NAD/NAD02/NAD0201 = 'xxxxxxxxxxxxx'">xxxxxxxxxxxxx</xsl:when>
-                    <xsl:otherwise>9099999104043</xsl:otherwise>
-                </xsl:choose>
-            </xsl:if>
-        </xsl:template>
-
-    </xsl:stylesheet>
+	<xsl:template match="POSITION">
+		<!--автоматический счетчик товарных позиций в заказе, начиная с 0-->
+		<fieldset index="{position() - 1}">
+			<field>
+				<!--Порядковый номер товара в заказе-->
+				<xsl:attribute name="name" select="'POSITIONNUMBER'"/>
+				<xsl:value-of select="POSITIONNUMBER"/>
+			</field>
+			<field>
+				<!--Штрих-код-->
+				<xsl:attribute name="name" select="'PRODUCT'"/>
+				<xsl:value-of select="PRODUCT"/>
+			</field>
+			<xsl:if test="PRODUCTIDBUYER">
+				<field>
+					<!--Артикул покупателя, может не передаваться в исключительных случаях-->
+					<xsl:attribute name="name" select="'PRODUCTIDBUYER'"/>
+					<xsl:value-of select="PRODUCTIDBUYER"/>
+				</field>
+			</xsl:if>
+			<xsl:if test="PRODUCTIDSUPPLIER">
+				<field>
+					<!--Артикул поставщика, передаётся редко-->
+					<xsl:attribute name="name" select="'PRODUCTIDSUPPLIER'"/>
+					<xsl:value-of select="PRODUCTIDSUPPLIER"/>
+				</field>
+			</xsl:if>
+			<xsl:if test="BUYERPARTNUMBER">
+				<field>
+					<!--Номер партии покупателя-->
+					<xsl:attribute name="name" select="'BUYERPARTNUMBER'"/>
+					<xsl:value-of select="BUYERPARTNUMBER"/>
+				</field>
+			</xsl:if>
+			<xsl:if test="ORDEREDQUANTITY">
+				<field>
+					<!--Заказанное кол-во-->
+					<xsl:attribute name="name" select="'ORDEREDQUANTITY'"/>
+					<xsl:value-of select="ORDEREDQUANTITY"/>
+				</field>
+			</xsl:if>
+			<xsl:if test="ORDERUNIT">
+				<field>
+					<!--Единица измерения-->
+					<xsl:attribute name="name" select="'ORDERUNIT'"/>
+					<xsl:attribute name="value" select="ORDERUNIT"/>
+					<xsl:attribute name="recordUuid" select="wdExtensions:getRecordUuidByValueFromDictionary('165dbb79-6ffa-40d9-b813-317a46c0cc88', '307cc5c5-7479-4cf3-8e80-0f0468557ab7', ORDERUNIT)"/>
+					<xsl:value-of select="wdExtensions:getValueFromDictionary('165dbb79-6ffa-40d9-b813-317a46c0cc88', '307cc5c5-7479-4cf3-8e80-0f0468557ab7', ORDERUNIT, 'b95e9804-ab45-4523-83d8-0a3374da6592')"/>
+				</field>
+			</xsl:if>
+			<xsl:if test="QUANTITYOFCUINTU">
+				<field>
+					<!--Кол-во в упаковке-->
+					<xsl:attribute name="name" select="'QUANTITYOFCUINTU'"/>
+					<xsl:value-of select="QUANTITYOFCUINTU"/>
+				</field>
+			</xsl:if>
+			<xsl:if test="ORDERPRICE">
+				<field>
+					<!--Цена в системе покупателя без НДС-->
+					<xsl:attribute name="name" select="'ORDERPRICE'"/>
+					<xsl:value-of select="ORDERPRICE"/>
+				</field>
+			</xsl:if>
+			<xsl:if test="PRICEWITHVAT">
+				<field>
+					<!--Цена в системе покупателя с НДС-->
+					<xsl:attribute name="name" select="'PRICEWITHVAT'"/>
+					<xsl:value-of select="PRICEWITHVAT"/>
+				</field>
+			</xsl:if>
+			<xsl:if test="CHARACTERISTIC/DESCRIPTION">
+				<field>
+					<!--Наименование товара-->
+					<xsl:attribute name="name" select="'DESCRIPTION'"/>
+					<xsl:value-of select="CHARACTERISTIC/DESCRIPTION"/>
+				</field>
+			</xsl:if>
+		</fieldset>
+	</xsl:template>
+</xsl:stylesheet>
 
 
 Conversion rule example for incoming documents
@@ -438,150 +327,110 @@ Conversion rule example for incoming documents
 
 .. code:: xml
 
-    <?xml version="1.0" encoding="ISO-8859-5"?>
-    <xsl:stylesheet version="1.0"
-                    xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
-                    xmlns:uuid="java:java.util.UUID"
-                    xmlns:saxon="http://saxon.sf.net/"
-                    xmlns:wdExtensions="java:com.whitedoc.xslt.extensions.WdExtensions"
-                    exclude-result-prefixes="saxon wdExtensions">
-        <xsl:output indent="yes" omit-xml-declaration="yes" encoding="ISO-8859-5" method="text"/>
-        <xsl:variable name="uid" select="uuid:randomUUID()"/>
-        <xsl:param name="senderMailboxUuid" select="envelope/flow/roles/role[1]/@mailboxUuid"/>
-        <xsl:param name="recipientMailboxUuid" select="envelope/flow/roles/role[2]/@mailboxUuid"/>
-        <xsl:variable name="senderGLN" select="wdExtensions:getValueFromDictionary('5bc5be5a-751d-4ae3-8ad8-3a6ac1ab71c8', '1ddf9e46-49f5-41a2-b6f5-7c3015bc4505', $senderMailboxUuid, '4f68fbf0-d78d-4aef-9192-bccd0c8d6011')"/>
-        <xsl:variable name="recipientGLN" select="wdExtensions:getValueFromDictionary('5bc5be5a-751d-4ae3-8ad8-3a6ac1ab71c8', '1ddf9e46-49f5-41a2-b6f5-7c3015bc4505', $recipientMailboxUuid, '4f68fbf0-d78d-4aef-9192-bccd0c8d6011')"/>
-        <xsl:template match="/">
-            <xsl:apply-templates select="envelope/documents/document"/>
-        </xsl:template>
-        <xsl:template match="document">
-            <xsl:choose>
-                <xsl:when test="$recipientGLN='4820086639637'">
-                    <xsl:call-template name="DESADV"/>
-                </xsl:when>
-                <xsl:when test="$recipientGLN='4820086630009'">
-                    <xsl:call-template name="DESADV"/>
-                </xsl:when>
-            </xsl:choose>
-        </xsl:template>
-        <xsl:template name="DESADV">
-            <xsl:param name="date" select="field[@name='DATE']"/>
-            <xsl:param name="Orderdate" select="field[@name='ORDERDATE']"/>
-            <xsl:choose>
-                <xsl:when test="$senderGLN=('4820110633693','4820110633785','9863521000093','9863521003131','9863521004022','9863521004015','9863521008150')">Lasynia wrong</xsl:when>
-                <xsl:otherwise>
-                    <xsl:choose>
-                        <xsl:when test="$senderGLN='4824025030288'">UNB+UNOC:3+4829900005924</xsl:when>
-                        <xsl:when test="$senderGLN='9863521027830'">UNB+UNOC:3+4829900006907</xsl:when>
-                        <xsl:when test="$senderGLN='9863521030045'">UNB+UNOC:3+4829900006891</xsl:when>
-                        <xsl:when test="$senderGLN='4820110631736'">UNB+UNOC:3+9863571155385</xsl:when>
-                        <xsl:when test="$senderGLN='9864082514562'">UNB+UNOC:3+4829900015633</xsl:when>
-                        <xsl:otherwise>UNA:+.? '
-                        UNB+UNOE:3+<xsl:value-of select="$senderGLN"/></xsl:otherwise>
-                            </xsl:choose>:14+<xsl:value-of select="$recipientGLN"/>:14+<xsl:value-of select="translate(substring($date, 3, 8), '-', '')"/>:0000+<xsl:value-of select="substring(translate($uid,'AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz-',''),1,14)"/><xsl:call-template name="TESTFLAGREAL"/>'
-                            UNH+<xsl:value-of select="substring(translate(field[@name='NUMBER'], '№ІіЙйЦцУуКкЕеНнГгШшЩщЗзХхЪъЭэЖжДдЛлОоРрПпАаВвЫыФфЯяЧчСсМмИиТтЬьБбЮюЁёЇїЄє AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz-#!@$%^*№()-_=+:;', ''),1,14)"/>+DESADV:D:01B:UN:EAN007'
-                            BGM+351+<xsl:value-of select="field[@name='NUMBER']"/>+9'
-                            DTM+137:<xsl:value-of select="translate($date, '-', '')"/>:102'<xsl:choose><xsl:when test="$recipientGLN='4820086639637'">
-                            DTM+17:<xsl:value-of select="translate(field[@name='DELIVERYDATE'], '-', '')"/><xsl:value-of select="translate(field[@name='DELIVERYTIME'], ':', '')"/>:203'</xsl:when><xsl:otherwise>
-                            DTM+17:<xsl:value-of select="translate(field[@name='DELIVERYDATE'], '-', '')"/>:102'</xsl:otherwise></xsl:choose><xsl:if test="field[@name='ORDERNUMBER']">
-                            RFF+ON:<xsl:value-of select="substring(field[@name='ORDERNUMBER'], 1, 15)"/>'</xsl:if>
-                            DTM+171:<xsl:value-of select="translate($Orderdate, '-', '')"/>:102'<xsl:if test="boolean(field[@name='DELIVERYNOTENUMBER'])">
-                            RFF+DQ:<xsl:value-of select="substring(field[@name='DELIVERYNOTENUMBER'], 1, 15)"/>'</xsl:if>
-                            NAD+BY+<xsl:value-of select="normalize-space(field[@name='BUYER'])"/>::9'
-                            NAD+SU+<xsl:value-of select="normalize-space(field[@name='SUPPLIER'])"/>::9'<xsl:if test="field[@name='CAMPAIGNNUMBER']">
-                            RFF+YC1:<xsl:value-of select="field[@name='CAMPAIGNNUMBER']"/>'</xsl:if>
-                            NAD+DP+<xsl:value-of select="normalize-space(field[@name='DELIVERYPLACE'])"/>::9'
-                            CPS+1'<xsl:if test="field[@name='TOTALPALLETS']">
-                            PAC+<xsl:value-of select="field[@name='TOTALPALLETS']"/>++201::9'</xsl:if><xsl:if test="field[@name='TOTALPACKAGES']">
-                            PAC+<xsl:value-of select="field[@name='TOTALPACKAGES']"/>++PK'</xsl:if><xsl:apply-templates select="fieldgroup[@name='PACKINGSEQUENCE']/fieldset" mode="ALL"/></xsl:otherwise>
-            </xsl:choose>
-            <xsl:choose>
-                <xsl:when test="field/@name='BUYER' and field='4824025000007'">UNT+<xsl:call-template name="KONTRCIFRABILLA"/>+<xsl:value-of select="substring(translate(field[@name='NUMBER'], '№ІіЙйЦцУуКкЕеНнГгШшЩщЗзХхЪъЭэЖжДдЛлОоРрПпАаВвЫыФфЯяЧчСсМмИиТтЬьБбЮюЁёЇїЄє AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz-#!@$%^*()-_=+:;', ''), 1, 14)"/>'UNZ+1+<xsl:value-of select="substring(translate($uid,'AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz-',''),1,14)"/>'</xsl:when>
-                <xsl:when test="$senderGLN='4829900002626'">
-                    <xsl:if test="field[@name='TOTALPACKAGES']">CNT+11:<xsl:value-of select="field[@name='TOTALPACKAGES']"/>'</xsl:if>UNT+<xsl:call-template name="KONTRCIFRA_MTI"/>+<xsl:value-of select="substring(translate(field[@name='NUMBER'], '№ІіЙйЦцУуКкЕеНнГгШшЩщЗзХхЪъЭэЖжДдЛлОоРрПпАаВвЫыФфЯяЧчСсМмИиТтЬьБбЮюЁёЇїЄє AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz-#!@$%^*()-_=+:;', ''),1,14)"/>'
-                    UNZ+1+<xsl:value-of select="substring(translate($uid,'AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz-',''),1,14)"/>'</xsl:when>
-                <xsl:otherwise>
-                UNT+<xsl:if test="boolean(fieldgroup[@name='PACKINGSEQUENCE']/fieldset/field[@name='ORDEREDQUANTITY'])"><xsl:call-template name="KONTRCIFRA"/></xsl:if><xsl:if test="not(boolean(fieldgroup[@name='PACKINGSEQUENCE']/fieldset/field[@name='ORDEREDQUANTITY']))"><xsl:call-template name="KONTRCIFRA_BEZ_ORDEREDQUANTITY"/></xsl:if>+<xsl:value-of select="substring(translate(field[@name='NUMBER'], '№ІіЙйЦцУуКкЕеНнГгШшЩщЗзХхЪъЭэЖжДдЛлОоРрПпАаВвЫыФфЯяЧчСсМмИиТтЬьБбЮюЁёЇїЄє AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz-#!@$%^*()-_=+:;', ''),1,14)"/>'
-                UNZ+1+<xsl:value-of select="substring(translate($uid,'AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz-',''),1,14)"/>'</xsl:otherwise>
-            </xsl:choose>
-        </xsl:template>
+<?xml version="1.0"?>
+<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns:saxon="http://saxon.sf.net/" xmlns:wdExtensions="java:com.whitedoc.xslt.extensions.WdExtensions" exclude-result-prefixes="saxon wdExtensions">
+	<xsl:output indent="yes"/>
 
-        <xsl:template match="fieldgroup[@name='PACKINGSEQUENCE']/fieldset" mode="BILLA">LIN+<xsl:value-of select="position()"/>++<xsl:value-of select="translate(field[@name='PRODUCT'], ' ','')"/>:SRV'<xsl:if test="boolean(field[@name='PRODUCTIDBUYER'])">PIA+1+<xsl:value-of select="field[@name='PRODUCTIDBUYER']"/>:IN::92'</xsl:if><xsl:if test="boolean(field[@name='PRODUCTIDSUPPLIER'])">PIA+1+<xsl:value-of select="field[@name='PRODUCTIDSUPPLIER']"/>:SU::92'</xsl:if>QTY+12:<xsl:value-of select="field[@name='DELIVEREDQUANTITY']"/><xsl:if test="field/@name='DELIVEREDUNIT' and field='KGM'">:KGM</xsl:if>'<xsl:if test="boolean(field[@name='ORDEREDQUANTITY'])">QTY+21:<xsl:value-of select="field[@name='ORDEREDQUANTITY']"/>'</xsl:if></xsl:template>
+	<xsl:template match="/">
+		<xsl:apply-templates select="envelope/documents/document"/>
+	</xsl:template>
 
-        <xsl:template match="fieldgroup[@name='PACKINGSEQUENCE']/fieldset" mode="ALL">
-        LIN+<xsl:value-of select="position()"/>++<xsl:value-of select="translate(field[@name='PRODUCT'], ' ','')"/>:SRV'<xsl:if test="boolean(field[@name='PRODUCTIDBUYER'])">
-        PIA+1+<xsl:value-of select="field[@name='PRODUCTIDBUYER']"/>:IN::92'</xsl:if><xsl:if test="field[@name='PACKAGEID']">
-        PIA+1+<xsl:value-of select="field[@name='PACKAGEID']"/>:CG::92'</xsl:if><xsl:choose><xsl:when test="field[@name='DELIVERYQUANTITY']">
-        QTY+12:<xsl:value-of select="field[@name='DELIVERYQUANTITY']"/><xsl:if test="field/@name='DELIVEREDUNIT' and field='KGM'">:KGM</xsl:if>'</xsl:when><xsl:otherwise>
-        QTY+12:<xsl:value-of select="field[@name='DELIVEREDQUANTITY']"/><xsl:if test="field/@name='DELIVEREDUNIT' and field='KGM'">:KGM</xsl:if>'</xsl:otherwise></xsl:choose><xsl:choose><xsl:when test="string-length(field[@name='ORDEREDQUANTITY'])!=0">
-        QTY+21:<xsl:value-of select="field[@name='ORDEREDQUANTITY']"/>'</xsl:when><xsl:otherwise>
-        QTY+21:<xsl:value-of select="field[@name='DELIVEREDQUANTITY']"/>'</xsl:otherwise></xsl:choose><!--<xsl:if test="DESCRIPTION">
-        FTX+DEL+1+002+<xsl:value-of select="DESCRIPTION"/>'</xsl:if>--><xsl:if test="field[@name='CONDITIONSTATUS']">
-        FTX+QQD+1+002+<xsl:value-of select="field[@name='CONDITIONSTATUS']"/>'</xsl:if></xsl:template>
+	<xsl:template match="document">
+		<ORDER>
+			<DOCUMENTNAME>220</DOCUMENTNAME>
+			<NUMBER>
+				<xsl:value-of select="field[@name='NUMBER']"/>
+			</NUMBER>
+			<DATE>
+				<xsl:value-of select="field[@name='DATE']"/>
+			</DATE>
+			<DELIVERYDATE>
+				<xsl:value-of select="field[@name='DELIVERYDATE']"/>
+			</DELIVERYDATE>
+			<CAMPAIGNNUMBER>
+				<xsl:value-of select="field[@name='CAMPAIGNNUMBER']"/>
+			</CAMPAIGNNUMBER>
+			<xsl:if test="field[@name='CURRENCY']">
+				<CURRENCY>
+					<xsl:value-of select="field[@name='CURRENCY']"/>
+				</CURRENCY>
+			</xsl:if>
+			<xsl:if test="field[@name='INFO']">
+				<INFO>
+					<xsl:value-of select="field[@name='INFO']"/>
+				</INFO>
+			</xsl:if>
+			<xsl:if test="field[@name='DOCTYPE']">
+				<DOCTYPE>
+					<xsl:choose>
+						<xsl:when test="field[@name='DOCTYPE']='Оригінал замовлення'">O</xsl:when>
+						<xsl:when test="field[@name='DOCTYPE']='Заміна замовлення'">R</xsl:when>
+						<xsl:when test="field[@name='DOCTYPE']='Видалення замовлення'">D</xsl:when>
+						<xsl:when test="field[@name='DOCTYPE']='Фіктивність замовлення'">F</xsl:when>
+						<xsl:when test="field[@name='DOCTYPE']='Попереднє замовлення'">PO</xsl:when>
+						<xsl:when test="field[@name='DOCTYPE']='Замовлення на послугу / маркетинг'">OS</xsl:when>
+						<xsl:otherwise>
+							<xsl:value-of select="field[@name='DOCTYPE']"/>
+						</xsl:otherwise>
+					</xsl:choose>
+				</DOCTYPE>
+			</xsl:if>
+			<HEAD>
+				<SUPPLIER>
+					<xsl:value-of select="field[@name='SUPPLIER']"/>
+				</SUPPLIER>
+				<BUYER>
+					<xsl:value-of select="field[@name='BUYER']"/>
+				</BUYER>
+				<DELIVERYPLACE>
+					<xsl:value-of select="field[@name='DELIVERYPLACE']"/>
+				</DELIVERYPLACE>
+				<SENDER>
+					<xsl:value-of select="field[@name='SENDER']"/>
+				</SENDER>
+				<RECIPIENT>
+					<xsl:value-of select="field[@name='RECIPIENT']"/>
+				</RECIPIENT>
+				<EDIINTERCHANGEID>
+					<xsl:value-of select="field[@name='EDIINTERCHANGEID']"/>
+				</EDIINTERCHANGEID>
+				<xsl:apply-templates select="fieldgroup/fieldset"/>
+			</HEAD>
+		</ORDER>
+	</xsl:template>
 
-
-        <xsl:template name="KONTRCIFRA">
-
-            <xsl:value-of select="10 + count(field[@name='CAMPAIGNNUMBER']) + count(field[@name='TOTALPACKAGES']) + count(field[@name='TOTALPALLETS']) +  count(field[@name='DELIVERYNOTENUMBER']) +   count(field[@name='DELIVERYPLACE']) +   count(fieldgroup[@name='PACKINGSEQUENCE']/fieldset/field[@name='PRODUCT']) +   count(fieldgroup[@name='PACKINGSEQUENCE']/fieldset/field[@name='PRODUCTIDBUYER']) +   count(fieldgroup[@name='PACKINGSEQUENCE']/fieldset/field[@name='DELIVEREDQUANTITY']) +   count(fieldgroup[@name='PACKINGSEQUENCE']/fieldset/field[@name='ORDEREDQUANTITY'])  "/>
-        </xsl:template>
-
-        <xsl:template name="KONTRCIFRA_BEZ_ORDEREDQUANTITY">
-            <xsl:value-of select="10 +    count(field[@name='DELIVERYNOTENUMBER']) +   count(field[@name='DELIVERYPLACE']) +   count(fieldgroup[@name='PACKINGSEQUENCE']/fieldset/field[@name='PRODUCT']) +   count(fieldgroup[@name='PACKINGSEQUENCE']/fieldset/field[@name='PRODUCTIDBUYER']) +   count(fieldgroup[@name='PACKINGSEQUENCE']/fieldset/field[@name='DELIVEREDQUANTITY']) +   count(fieldgroup[@name='PACKINGSEQUENCE']/fieldset/field[@name='DELIVEREDQUANTITY'])   "/>
-        </xsl:template>
-
-        <xsl:template name="KONTRCIFRABILLA">
-
-            <xsl:value-of select="11 +    count(field[@name='DELIVERYNOTENUMBER']) +   count(field[@name='DELIVERYPLACE']) +   count(fieldgroup[@name='PACKINGSEQUENCE']/fieldset/field[@name='PRODUCT']) +   count(fieldgroup[@name='PACKINGSEQUENCE']/fieldset/field[@name='PRODUCTIDBUYER']) +   count(fieldgroup[@name='PACKINGSEQUENCE']/fieldset/field[@name='DELIVEREDQUANTITY']) +   count(fieldgroup[@name='PACKINGSEQUENCE']/fieldset/field[@name='ORDEREDQUANTITY'])  "/>
-        </xsl:template>
-
-        <xsl:template name="KONTRCIFRA_MTI">
-
-            <xsl:value-of select="3 +   count(field[@name='NUMBER']) +   count(field[@name='DATE']) +   count(field[@name='DELIVERYDATE']) +   count(field[@name='ORDERNUMBER']) +   count(field[@name='ORDERDATE']) +   count(field[@name='DELIVERYNOTENUMBER']) +   count(field[@name='BUYER']) +   count(field[@name='BUYERCODE']) +   count(field[@name='SUPPLIER']) +   count(field[@name='DELIVERYPLACE']) +   count($senderGLN) +   count(field[@name='SENDERNAME']) +   count(field[@name='SENDERPHONE']) +   count(field[@name='INFO']) +   count(field[@name='TRANSPORTID']) +    count(fieldgroup[@name='PACKINGSEQUENCE']/fieldset/field[@name='PRODUCT']) +   count(fieldgroup[@name='PACKINGSEQUENCE']/fieldset/field[@name='PRODUCTIDBUYER']) +   count(fieldgroup[@name='PACKINGSEQUENCE']/fieldset/field[@name='PRODUCTIDSUPPLIER']) +   count(fieldgroup[@name='PACKINGSEQUENCE']/fieldset/field[@name='DELIVEREDQUANTITY']) +   count(fieldgroup[@name='PACKINGSEQUENCE']/fieldset/field[@name='ORDEREDQUANTITY']) +   count(fieldgroup[@name='PACKINGSEQUENCE']/fieldset/field[@name='DESCRIPTION']) +   count(fieldgroup[@name='PACKINGSEQUENCE']/fieldset/field[@name='CONDITIONSTATUS']) +   count(fieldgroup[@name='PACKINGSEQUENCE']/fieldset/field[@name='PACKAGEID'])+    count(field[@name='TOTALPACKAGES'])   "/>
-        </xsl:template>
-
-        <xsl:template name="DATEPLUS1">
-            <xsl:variable name="Date" select="field[@name='DATE']"/>
-            <xsl:variable name="Plus" select="translate($Date, '-', '')"/>
-            <xsl:choose>
-                <xsl:when test="substring($Plus,5,4) = 0228">20100301</xsl:when>
-                <xsl:when test="substring($Plus,5,4) = 0331">20100401</xsl:when>
-                <xsl:when test="substring($Plus,5,4) = 0430">20100501</xsl:when>
-                <xsl:when test="substring($Plus,5,4) = 0531">20100601</xsl:when>
-                <xsl:when test="substring($Plus,5,4) = 0630">20100701</xsl:when>
-                <xsl:when test="substring($Plus,5,4) = 0731">20100801</xsl:when>
-                <xsl:when test="substring($Plus,5,4) = 0831">20100901</xsl:when>
-                <xsl:when test="substring($Plus,5,4) = 0930">20101001</xsl:when>
-                <xsl:when test="substring($Plus,5,4) = 1031">20101101</xsl:when>
-                <xsl:when test="substring($Plus,5,4) = 1130">20101201</xsl:when>
-                <xsl:when test="$Plus = 20091231">20100101</xsl:when>
-                <xsl:when test="$Plus = 20101231">20110101</xsl:when>
-                <xsl:otherwise>
-                    <xsl:variable name="Char" select="$Plus+1"/>
-                    <xsl:variable name="Transform" select="translate($Char,'.', '')"/>
-                    <xsl:value-of select="substring($Transform,1,8)"/>
-                </xsl:otherwise>
-            </xsl:choose>
-        </xsl:template>
-
-
-        <xsl:template name="NUMB1">
-            <xsl:variable name="literals">+?"'&amp;&lt;&gt;</xsl:variable>
-            <xsl:value-of select="substring(translate(field[@name='NUMBER'], 'ІіЙйЦцУуКкЕеНнГгШшЩщЗзХхЪъЭэЖжДдЛлОоРрПпАаВвЫыФфЯяЧчСсМмИиТтЬьБбЮюЁёЇїЄє AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz-№#!@$%^*№()-_=+:;', ''), $literals, '')"/>
-        </xsl:template>
-
-        <xsl:template name="NUMB">
-            <xsl:value-of select="translate(field[@name='NUMBER'], 'ІіЙйЦцУуКкЕеНнГгШшЩщЗзХхЪъЭэЖжДдЛлОоРрПпАаВвЫыФфЯяЧчСсМмИиТтЬьБбЮюЁёЇїЄє AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz-№#!@$%^*№()-_=+:;', '')"/>
-        </xsl:template>
-
-        <xsl:template name="DELIVERYNOTENUMBER">
-            <xsl:value-of select="translate(field[@name='DELIVERYNOTENUMBER'], 'ІіЙйЦцУуКкЕеНнГгШшЩщЗзХхЪъЭэЖжДдЛлОоРрПпАаВвЫыФфЯяЧчСсМмИиТтЬьБбЮюЁёЇїЄє AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz-№#!@$%^*№()-_=+:;', '')"/>
-        </xsl:template>
-
-        <xsl:template name="TESTFLAGREAL">
-            <xsl:choose>
-                <xsl:when test="$recipientGLN='4820086630009'"></xsl:when>
-                <xsl:when test="$recipientGLN='4820086639637'"></xsl:when>
-                <xsl:otherwise>++++++1</xsl:otherwise>
-            </xsl:choose>
-        </xsl:template>
-    </xsl:stylesheet>
+	<xsl:template match="fieldset">
+		<POSITION>
+			<POSITIONNUMBER>
+				<xsl:value-of select="field[@name='POSITIONNUMBER']"/>
+			</POSITIONNUMBER>
+			<PRODUCT>
+				<xsl:value-of select="field[@name='PRODUCT']"/>
+			</PRODUCT>
+			<PRODUCTIDSUPPLIER>
+				<xsl:value-of select="field[@name='PRODUCTIDSUPPLIER']"/>
+			</PRODUCTIDSUPPLIER>
+			<PRODUCTIDBUYER>
+				<xsl:value-of select="field[@name='PRODUCTIDBUYER']"/>
+			</PRODUCTIDBUYER>
+			<ORDEREDQUANTITY>
+				<xsl:value-of select="field[@name='ORDEREDQUANTITY']"/>
+			</ORDEREDQUANTITY>
+			<ORDERPRICE>
+				<xsl:value-of select="field[@name='ORDERPRICE']"/>
+			</ORDERPRICE>
+			<PRICEWITHVAT>
+				<xsl:value-of select="field[@name='PRICEWITHVAT']"/>
+			</PRICEWITHVAT>
+			<ORDERUNIT>
+				<xsl:variable name="ordunt" select="field[@name='ORDERUNIT']"/>
+				<xsl:value-of select="wdExtensions:getValueFromDictionary('165dbb79-6ffa-40d9-b813-317a46c0cc88', 'b95e9804-ab45-4523-83d8-0a3374da6592', $ordunt, '307cc5c5-7479-4cf3-8e80-0f0468557ab7')"/>
+			</ORDERUNIT>
+			<CHARACTERISTIC>
+				<DESCRIPTION>
+					<xsl:value-of select="field[@name='DESCRIPTION']"/>
+				</DESCRIPTION>
+			</CHARACTERISTIC>
+		</POSITION>
+	</xsl:template>
+</xsl:stylesheet>
