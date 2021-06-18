@@ -23,8 +23,8 @@ Conversion rule creation process for outgoing document
 .. important:: F.e.: you have a couple of files with different names and similar part of name: example111.txt, example222.txt and example333.txt. To write a matching rule which will be appropriate for all of the files you can write next expression: example.*.txt and all files will be correspond to your matching pattern. `How to use regular expression you can find here <https://en.wikipedia.org/wiki/Regular_expression>`_
 
 4. In field (5) customer should select according what content will be make matching
-    - Name - matching rule will be match with file name
-    - Content - matching rule will be match with file content
+    - Name - matching rule will be match with file name, example: FileName*.
+    - Content - matching rule will be match with file content, example: <CONTENT>*.
 
 5. In field (6) customer should provide templateUUID which match to outgoing document
 
